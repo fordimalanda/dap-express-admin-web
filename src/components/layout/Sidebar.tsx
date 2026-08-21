@@ -7,20 +7,31 @@ import {
   LayoutDashboard, 
   ShoppingBag, 
   Package, 
+  Bell,
   ExternalLink,
   LogOut,
   TrendingUp,
   Settings
 } from "lucide-react";
 import { authStorage } from "@/lib/auth";
+import { notificationsStore } from "@/lib/notifications";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = React.useState(0);
+
+  React.useEffect(() => {
+    const unsubscribe = notificationsStore.subscribe((list) => {
+      setUnreadCount(list.filter((n) => !n.read).length);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const menuItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Commandes", href: "/orders", icon: ShoppingBag },
     { name: "Produits", href: "/products", icon: Package },
+    { name: "Notifications", href: "/notifications", icon: Bell, badge: unreadCount },
   ];
 
   const handleLogout = () => {
@@ -52,14 +63,23 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition ${
+              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition ${
                 isActive
                   ? "bg-[#FF6B00] text-white shadow-md shadow-orange-500/20"
                   : "text-slate-400 hover:text-white hover:bg-slate-800/60"
               }`}
             >
-              <Icon className="h-5 w-5" />
-              {item.name}
+              <div className="flex items-center gap-3">
+                <Icon className="h-5 w-5" />
+                {item.name}
+              </div>
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  isActive ? "bg-white text-[#FF6B00]" : "bg-[#FF6B00] text-white"
+                }`}>
+                  {item.badge > 9 ? "9+" : item.badge}
+                </span>
+              )}
             </Link>
           );
         })}

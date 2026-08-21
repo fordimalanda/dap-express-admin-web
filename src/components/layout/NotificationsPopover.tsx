@@ -7,88 +7,28 @@ import {
   ShoppingBag, 
   AlertTriangle, 
   CheckCircle2, 
-  Info, 
+  XCircle,
+  Clock, 
   Trash2, 
   CheckCheck, 
   X,
-  ChevronRight
+  ChevronRight,
+  ExternalLink,
+  Flame
 } from "lucide-react";
-import { apiClient } from "@/lib/api";
-
-export interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  type: "order" | "stock" | "delivery" | "info";
-  time: string;
-  read: boolean;
-  link?: string;
-}
-
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: "notif-1",
-    title: "Nouvelle commande reçue",
-    message: "Commande #DAP-4921 pour 45 000 FCFA (Brazzaville)",
-    type: "order",
-    time: "Il y a 3 min",
-    read: false,
-    link: "/orders",
-  },
-  {
-    id: "notif-2",
-    title: "Alerte Stock Faible",
-    message: "Le produit 'Montre Connectée Sport' a moins de 5 unités en stock.",
-    type: "stock",
-    time: "Il y a 25 min",
-    read: false,
-    link: "/products",
-  },
-  {
-    id: "notif-3",
-    title: "Livraison Confirmée",
-    message: "La commande #DAP-4890 a été marquée comme livrée.",
-    type: "delivery",
-    time: "Il y a 2 heures",
-    read: true,
-    link: "/orders",
-  },
-];
+import { notificationsStore, AppNotification } from "@/lib/notifications";
 
 export function NotificationsPopover() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Synchronisation avec les commandes réelles si disponibles
   useEffect(() => {
-    const fetchLatestOrdersForNotif = async () => {
-      try {
-        const res = await apiClient.get("/orders");
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          const recent = res.data.slice(0, 3).map((ord: any, idx: number) => ({
-            id: `api-ord-${ord.id || idx}`,
-            title: ord.status === "PENDING" ? "Nouvelle commande en attente" : `Commande ${ord.status.toLowerCase()}`,
-            message: `Commande ${ord.orderNumber} par ${ord.customerFirstName} ${ord.customerLastName} (${ord.totalAmount?.toLocaleString()} FCFA)`,
-            type: (ord.status === "DELIVERED" ? "delivery" : "order") as "delivery" | "order",
-            time: "Récemment",
-            read: false,
-            link: "/orders",
-          }));
-
-          setNotifications((prev) => {
-            const existingIds = new Set(prev.map((n) => n.id));
-            const newNotifs = recent.filter((n: any) => !existingIds.has(n.id));
-            return [...newNotifs, ...prev];
-          });
-        }
-      } catch (err) {
-        // En cas d'erreur de requête silencieuse, conserver les notifications par défaut
-      }
-    };
-
-    fetchLatestOrdersForNotif();
+    const unsubscribe = notificationsStore.subscribe((list) => {
+      setNotifications(list);
+    });
+    return () => unsubscribe();
   }, []);
 
   // Fermer quand on clique à l'extérieur
@@ -109,56 +49,66 @@ export function NotificationsPopover() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
-  };
-
-  const handleNotificationClick = (item: NotificationItem) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
-    );
+  const handleNotificationClick = (item: AppNotification) => {
+    notificationsStore.markAsRead(item.id);
     setIsOpen(false);
     if (item.link) {
       router.push(item.link);
     }
   };
 
-  const getIcon = (type: NotificationItem["type"]) => {
+  const getTimeAgo = (createdAt: number) => {
+    const elapsedMinutes = Math.floor((Date.now() - createdAt) / (60 * 1000));
+    if (elapsedMinutes < 1) return "À l'instant";
+    if (elapsedMinutes === 1) return "Il y a 1 min";
+    return `Il y a ${elapsedMinutes} min`;
+  };
+
+  const getRemainingTime = (createdAt: number) => {
+    const remainingMin = Math.max(0, 60 - Math.floor((Date.now() - createdAt) / (60 * 1000)));
+    return `Expire dans ${remainingMin} min`;
+  };
+
+  const getIcon = (type: AppNotification["type"]) => {
     switch (type) {
-      case "order":
+      case "order_created":
         return <ShoppingBag className="h-4 w-4 text-[#FF6B00]" />;
-      case "stock":
-        return <AlertTriangle className="h-4 w-4 text-amber-500" />;
-      case "delivery":
+      case "order_confirmed":
+        return <CheckCircle2 className="h-4 w-4 text-blue-500" />;
+      case "order_delivered":
         return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
+      case "order_cancelled":
+        return <XCircle className="h-4 w-4 text-rose-500" />;
+      case "stock_alert":
+        return <AlertTriangle className="h-4 w-4 text-amber-500" />;
       default:
-        return <Info className="h-4 w-4 text-blue-500" />;
+        return <Flame className="h-4 w-4 text-orange-500" />;
     }
   };
 
-  const getIconBg = (type: NotificationItem["type"]) => {
+  const getIconBg = (type: AppNotification["type"]) => {
     switch (type) {
-      case "order":
+      case "order_created":
         return "bg-orange-50";
-      case "stock":
-        return "bg-amber-50";
-      case "delivery":
-        return "bg-emerald-50";
-      default:
+      case "order_confirmed":
         return "bg-blue-50";
+      case "order_delivered":
+        return "bg-emerald-50";
+      case "order_cancelled":
+        return "bg-rose-50";
+      case "stock_alert":
+        return "bg-amber-50";
+      default:
+        return "bg-slate-50";
     }
   };
 
   return (
     <div className="relative" ref={popoverRef}>
-      {/* Trigger Button */}
+      {/* Trigger Button avec Compteur Non-Lu */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        aria-label="Centre de notifications"
+        aria-label="Centre de notifications éphémères"
         className="p-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition relative flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-orange-500/20"
       >
         <Bell className="h-5 w-5" />
@@ -175,17 +125,20 @@ export function NotificationsPopover() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-slate-900 text-sm">Notifications</h3>
+              <h3 className="font-bold text-slate-900 text-sm">Activités Récentes</h3>
+              <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600 font-semibold flex items-center gap-1">
+                <Clock className="h-2.5 w-2.5" /> 1h max
+              </span>
               {unreadCount > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-orange-100 text-[#FF6B00] text-[11px] font-bold">
-                  {unreadCount} nouvelle{unreadCount > 1 ? "s" : ""}
+                  {unreadCount} non lue{unreadCount > 1 ? "s" : ""}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-1">
               {unreadCount > 0 && (
                 <button
-                  onClick={markAllAsRead}
+                  onClick={() => notificationsStore.markAllAsRead()}
                   title="Tout marquer comme lu"
                   className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 transition"
                 >
@@ -194,7 +147,7 @@ export function NotificationsPopover() {
               )}
               {notifications.length > 0 && (
                 <button
-                  onClick={clearAll}
+                  onClick={() => notificationsStore.clearAll()}
                   title="Effacer tout"
                   className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition"
                 >
@@ -210,13 +163,20 @@ export function NotificationsPopover() {
             </div>
           </div>
 
+          {/* Banner Éphémère */}
+          <div className="px-4 py-1.5 bg-orange-50/50 border-b border-orange-100/50 flex items-center justify-between text-[11px] text-orange-800">
+            <span className="flex items-center gap-1 font-medium">
+              <Flame className="h-3 w-3 text-[#FF6B00]" /> Notifications éphémères (auto-nettoyage 1h)
+            </span>
+          </div>
+
           {/* List */}
           <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-50">
             {notifications.length === 0 ? (
               <div className="py-10 text-center text-slate-400 px-4">
                 <Bell className="h-8 w-8 mx-auto mb-2 text-slate-200" />
-                <p className="text-sm font-medium">Aucune notification</p>
-                <p className="text-xs text-slate-400 mt-0.5">Vous êtes parfaitement à jour !</p>
+                <p className="text-sm font-medium">Aucune nouvelle action récente</p>
+                <p className="text-xs text-slate-400 mt-0.5">Les alertes de moins d'1h s'afficheront ici</p>
               </div>
             ) : (
               notifications.map((item) => (
@@ -236,11 +196,16 @@ export function NotificationsPopover() {
                       <p className={`text-xs truncate ${!item.read ? "font-bold text-slate-900" : "font-medium text-slate-700"}`}>
                         {item.title}
                       </p>
-                      <span className="text-[10px] text-slate-400 whitespace-nowrap">{item.time}</span>
+                      <span className="text-[10px] text-slate-400 whitespace-nowrap">{getTimeAgo(item.createdAt)}</span>
                     </div>
                     <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
                       {item.message}
                     </p>
+                    <div className="mt-1 flex items-center justify-between">
+                      <span className="text-[10px] text-orange-600/80 font-medium">
+                        {getRemainingTime(item.createdAt)}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex items-center self-center pl-1">
@@ -254,20 +219,18 @@ export function NotificationsPopover() {
             )}
           </div>
 
-          {/* Footer */}
-          {notifications.length > 0 && (
-            <div className="pt-2 px-4 border-t border-slate-100 text-center">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  router.push("/orders");
-                }}
-                className="text-xs font-bold text-[#FF6B00] hover:text-[#e05e00] transition"
-              >
-                Voir toutes les activités des commandes →
-              </button>
-            </div>
-          )}
+          {/* Footer - Redirection vers la page complète de gestion des notifications */}
+          <div className="pt-2.5 pb-1 px-4 border-t border-slate-100 text-center">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                router.push("/notifications");
+              }}
+              className="text-xs font-bold text-[#FF6B00] hover:text-[#e05e00] transition flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg hover:bg-orange-50/60"
+            >
+              Voir toutes les activités des commandes →
+            </button>
+          </div>
         </div>
       )}
     </div>
