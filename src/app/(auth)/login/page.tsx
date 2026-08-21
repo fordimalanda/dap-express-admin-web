@@ -10,8 +10,8 @@ import { ShieldCheck, Lock } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@dap-express.com");
-  const [password, setPassword] = useState("admin123456");
+  const [email, setEmail] = useState("fordimalanda7@gmail.com");
+  const [password, setPassword] = useState("MALANDA100");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,16 +26,17 @@ export default function LoginPage() {
       authStorage.setUser(res.data.admin);
       router.push("/dashboard");
     } catch (err: any) {
-      console.warn("Dev mode fallback: using local admin session", err.message);
-      // Mode simulation pour développement immédiat
-      authStorage.setToken("dummy_dev_token");
-      authStorage.setUser({
-        id: "admin-1",
-        email: email,
-        name: "Admin Dap-Express",
-        role: "SUPER_ADMIN",
-      });
-      router.push("/dashboard");
+      console.error("Erreur de connexion:", err);
+      const serverMsg = err.response?.data?.message;
+      if (typeof serverMsg === "string") {
+        setError(serverMsg);
+      } else if (Array.isArray(serverMsg)) {
+        setError(serverMsg.join(", "));
+      } else if (err.code === "ERR_NETWORK" || !err.response) {
+        setError("Impossible de joindre le serveur API (port 3000). Vérifiez que Docker / l'API est démarré.");
+      } else {
+        setError("Identifiants incorrects ou compte inactif.");
+      }
     } finally {
       setIsLoading(false);
     }
