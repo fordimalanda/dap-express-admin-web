@@ -69,7 +69,7 @@ export function Sidebar() {
         </div>
 
         <a
-          href="http://localhost:3000"
+          href={process.env.NEXT_PUBLIC_CLIENT_STORE_URL || "http://localhost:3001"}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition"
