@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { authStorage } from "@/lib/auth";
 import { AdminUser } from "@/types";
-import { User, Bell } from "lucide-react";
+import { User } from "lucide-react";
+import { NotificationsPopover } from "./NotificationsPopover";
 
 export function Header() {
   const [user, setUser] = useState<AdminUser | null>(null);
@@ -11,8 +12,8 @@ export function Header() {
   useEffect(() => {
     setUser(authStorage.getUser() || {
       id: "admin-1",
-      name: "Admin Principal",
-      email: "admin@dap-express.com",
+      name: "Fordi Malanda",
+      email: "fordimalanda7@gmail.com",
       role: "SUPER_ADMIN",
     });
   }, []);
@@ -24,10 +25,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#FF6B00]" />
-        </button>
+        <NotificationsPopover />
 
         <div className="flex items-center gap-3 pl-3 border-l border-slate-200">
           <div className="h-9 w-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
