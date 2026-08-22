@@ -165,7 +165,7 @@ export default function ProductsPage() {
                     )}
                   </button>
                   <a
-                    href={`${process.env.NEXT_PUBLIC_CLIENT_STORE_URL || "http://localhost:3001"}/p/${p.slug}`}
+                    href={`${process.env.NEXT_PUBLIC_CLIENT_STORE_URL || "http://localhost:3001"}/p/${p.slug}#order`}
                     target="_blank"
                     rel="noopener noreferrer"
                     title="Ouvrir la page produit"
